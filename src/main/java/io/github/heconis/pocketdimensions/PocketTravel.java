@@ -162,7 +162,7 @@ public final class PocketTravel {
         PocketData.ReturnPoint origin = PocketData.ReturnPoint.capture(player);
         if (travel(player, pocket, arrival, 0, 0)) {
             room.returnPoint = origin;
-            room.exitArmed = false;
+            room.exitArmed = true;
             data.setDirty();
             message(player, "entered");
         } else {
@@ -180,24 +180,25 @@ public final class PocketTravel {
             return;
         }
 
-        if (!PocketRoom.interior(room).contains(player.position())) {
-            Vec3 arrival = PocketRoom.safeEntrance(player, player.serverLevel(), room);
-            if (arrival != null && move(player, player.serverLevel(), arrival, 0, 0)) {
+        if (PocketRoom.insideExit(player, room)) {
+            if (room.exitArmed) {
                 room.exitArmed = false;
                 data.setDirty();
+                returnToOrigin(player, data, room);
             }
             return;
         }
 
-        if (!PocketRoom.touchingExit(player, room)) {
-            if (!room.exitArmed) {
-                room.exitArmed = true;
-                data.setDirty();
+        if (!PocketRoom.interior(room).contains(player.position())) {
+            Vec3 arrival = PocketRoom.safeEntrance(player, player.serverLevel(), room);
+            if (arrival == null || !move(player, player.serverLevel(), arrival, 0, 0)) {
+                return;
             }
-        } else if (room.exitArmed) {
-            room.exitArmed = false;
+        }
+
+        if (!room.exitArmed) {
+            room.exitArmed = true;
             data.setDirty();
-            returnToOrigin(player, data, room);
         }
     }
 

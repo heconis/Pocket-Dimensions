@@ -3,7 +3,7 @@
   "key.pocket_dimensions.enter": "ポケットディメンションへの移動を開始",
   "block.pocket_dimensions.exit": "帰還ゲート",
   "message.pocket_dimensions.casting": "ポケットディメンションへ移動中...",
-  "message.pocket_dimensions.entered": "帰還するには壁のゲートから一度離れ、近づいて触れてください。",
+  "message.pocket_dimensions.entered": "帰還するには壁のゲートの中に入ってください。",
   "message.pocket_dimensions.inside": "帰還するには区画内のゲートを使ってください。",
   "message.pocket_dimensions.combat": "戦闘中はポケットディメンションに移動できません。",
   "message.pocket_dimensions.entry_failed": "ポケットディメンションを利用できません。時間をおいて再試行してください。",

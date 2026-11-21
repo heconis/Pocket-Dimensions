@@ -21,6 +21,7 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -78,7 +79,7 @@ public final class PocketTravelTest {
         helper.runAfterDelay(80, () -> {
             tick(first);
             tick(first);
-            helper.assertTrue(first.level() == pocket, "Standing in the exit on entry must not return the player");
+            helper.assertTrue(first.level() == pocket, "Arriving in front of the exit must not return the player");
 
             PocketData data = PocketData.get(source.getServer());
             PocketData.Room room = data.find(first.getUUID());
@@ -86,13 +87,15 @@ public final class PocketTravelTest {
             helper.assertTrue(room.returnPoint.position().distanceToSqr(origin) < 0.001,
                     "The first player must cast from " + origin + " but cast from " + room.returnPoint.position());
             PocketData.Room restored = PocketData.load(data.save(new CompoundTag())).find(first.getUUID());
-            helper.assertTrue(restored.id == room.id && restored.compactLayout && restored.generated && !restored.exitArmed
+            helper.assertTrue(restored.id == room.id && restored.compactLayout && restored.generated && restored.exitArmed
                             && room.returnPoint.equals(restored.returnPoint),
                     "Saved room ownership and return data must survive serialization and reload");
             Vec3 arrival = PocketRoom.entrance(room);
             assertCompactLayout(helper, pocket, arrival);
             assertGatewayEffects(helper, pocket, source, room);
-            stepThroughExit(second, PocketRoom.entrance(data.find(second.getUUID())));
+            Vec3 upperGate = Vec3.atBottomCenterOf(PocketRoom.exit(data.find(second.getUUID())));
+            second.setPos(upperGate.x, upperGate.y, upperGate.z);
+            tick(second);
             helper.assertTrue(second.level() == end && second.position().distanceToSqr(secondOrigin) < 0.001,
                     "Expected the End at " + secondOrigin + " but arrived at " + second.position()
                             + " in " + second.level().dimension().location());
@@ -104,7 +107,14 @@ public final class PocketTravelTest {
             ChestBlockEntity chest = (ChestBlockEntity) pocket.getBlockEntity(chestPos);
             chest.setItem(0, new ItemStack(Items.DIAMOND));
 
-            stepThroughExit(first, arrival);
+            Vec3 approach = arrival.add(0, 0, -0.08);
+            first.setPos(approach.x, approach.y, approach.z);
+            tick(first);
+            helper.assertTrue(first.level() == pocket, "Overlapping the gateway with only the player's bounds must not return them");
+            first.move(MoverType.SELF, new Vec3(0, 0, -0.64));
+            helper.assertTrue(first.blockPosition().equals(PocketRoom.exit(room).below()),
+                    "The player must be able to walk into the lower gateway block");
+            tick(first);
             helper.assertTrue(first.level() == source && first.position().distanceToSqr(origin) < 0.001,
                     "The exit must return the player to " + origin + " but arrived at " + first.position()
                             + " in " + first.level().dimension().location());
@@ -117,7 +127,9 @@ public final class PocketTravelTest {
                 ChestBlockEntity savedChest = (ChestBlockEntity) pocket.getBlockEntity(chestPos);
                 helper.assertTrue(savedChest.getItem(0).is(Items.DIAMOND), "Re-entry must preserve room contents");
                 source.setBlockAndUpdate(BlockPos.containing(origin), Blocks.STONE.defaultBlockState());
-                stepThroughExit(first, arrival);
+                Vec3 lowerGate = Vec3.atBottomCenterOf(PocketRoom.exit(room).below());
+                first.setPos(lowerGate.x, lowerGate.y, lowerGate.z);
+                tick(first);
                 helper.assertTrue(first.level() == source && first.position().distanceToSqr(origin) > 0.1
                                 && SafeReturn.isSafe(first, source, first.position()),
                         "A blocked origin must return the player to a safe nearby position");
@@ -143,6 +155,7 @@ public final class PocketTravelTest {
         BlockPos gate = PocketRoom.exit(room);
         BlockPos oldGate = gate.offset(0, -1, 3);
         pocket.setBlockAndUpdate(gate, Blocks.BEDROCK.defaultBlockState());
+        pocket.setBlockAndUpdate(gate.below(), Blocks.BEDROCK.defaultBlockState());
         pocket.setBlockAndUpdate(oldGate, PocketDimensions.EXIT.get().defaultBlockState());
         pocket.setBlockAndUpdate(oldGate.above(), PocketDimensions.EXIT.get().defaultBlockState());
         BlockPos chestPos = oldGate.offset(-6, 0, 0);
@@ -151,7 +164,8 @@ public final class PocketTravelTest {
         chest.setItem(0, new ItemStack(Items.DIAMOND));
         helper.assertTrue(PocketRoom.prepare(pocket, data, room) && PocketRoom.prepare(pocket, data, room),
                 "Upgrading the same legacy gate twice must succeed");
-        helper.assertTrue(pocket.getBlockState(gate).is(Blocks.END_GATEWAY) && pocket.getBlockState(oldGate).isAir()
+        helper.assertTrue(pocket.getBlockState(gate).is(Blocks.END_GATEWAY)
+                        && pocket.getBlockState(gate.below()).is(Blocks.END_GATEWAY) && pocket.getBlockState(oldGate).isAir()
                         && pocket.getBlockState(oldGate.above()).isAir(),
                 "The legacy gate must become an End gateway in the wall and free up its old floor space");
         helper.assertTrue(pocket.getBlockEntity(chestPos) instanceof ChestBlockEntity savedChest
@@ -165,13 +179,22 @@ public final class PocketTravelTest {
         BlockPos compactGate = PocketRoom.exit(compact);
         BlockPos compactOldGate = compactGate.offset(0, -1, 1);
         pocket.setBlockAndUpdate(compactGate, Blocks.BARRIER.defaultBlockState());
+        pocket.setBlockAndUpdate(compactGate.below(), Blocks.BARRIER.defaultBlockState());
         pocket.setBlockAndUpdate(compactOldGate, Blocks.END_PORTAL.defaultBlockState());
         pocket.setBlockAndUpdate(compactOldGate.above(), Blocks.POLISHED_DEEPSLATE.defaultBlockState());
         helper.assertTrue(PocketRoom.prepare(pocket, compactData, compact), "The 0.2.0 gate must upgrade too");
         helper.assertTrue(pocket.getBlockState(compactGate).is(Blocks.END_GATEWAY)
+                        && pocket.getBlockState(compactGate.below()).is(Blocks.END_GATEWAY)
                         && pocket.getBlockState(compactOldGate).isAir()
                         && pocket.getBlockState(compactOldGate.above()).is(Blocks.POLISHED_DEEPSLATE),
                 "The 0.2.0 migration must remove only the old portal and keep the adjacent building block");
+
+        pocket.setBlockAndUpdate(compactGate.below(), Blocks.BARRIER.defaultBlockState());
+        var originalUpperGateway = pocket.getBlockEntity(compactGate);
+        helper.assertTrue(PocketRoom.prepare(pocket, compactData, compact)
+                        && pocket.getBlockState(compactGate.below()).is(Blocks.END_GATEWAY)
+                        && pocket.getBlockEntity(compactGate) == originalUpperGateway,
+                "The 0.3.0 migration must add a lower gateway without replacing the original upper gateway");
         helper.succeed();
     }
 
@@ -182,7 +205,7 @@ public final class PocketTravelTest {
             int y = pos.getY();
             int z = pos.getZ() - origin.getZ();
             BlockState state = level.getBlockState(pos);
-            if (x == 8 && y == 3 && z == 4) {
+            if (x == 8 && (y == 2 || y == 3) && z == 4) {
                 helper.assertTrue(state.is(Blocks.END_GATEWAY), "The gateway must occupy a wall block outside the platform");
             } else if (x < 5 || x >= 12 || z < 5 || z >= 12 || y == 0 || y >= 29) {
                 helper.assertTrue(state.is(Blocks.BARRIER), "Missing barrier at " + pos);
@@ -221,13 +244,6 @@ public final class PocketTravelTest {
         new ServerGamePacketListenerImpl(level.getServer(), new RecordingConnection(), player);
         level.addNewPlayer(player);
         return player;
-    }
-
-    private static void stepThroughExit(ServerPlayer player, Vec3 arrival) {
-        player.setPos(arrival.x, arrival.y, arrival.z + 2);
-        tick(player);
-        player.setPos(arrival.x, arrival.y, arrival.z);
-        tick(player);
     }
 
     private static final class RecordingConnection extends Connection {

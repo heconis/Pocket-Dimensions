@@ -35,8 +35,9 @@ public final class PocketRoom {
 
         if (!room.generated) {
             BlockPos gate = exit(room);
+            BlockPos lowerGate = gate.below();
             for (BlockPos pos : BlockPos.betweenClosed(origin, corner)) {
-                if (pos.equals(gate) && level.getBlockState(gate).is(Blocks.END_GATEWAY)) {
+                if ((pos.equals(gate) || pos.equals(lowerGate)) && level.getBlockState(pos).is(Blocks.END_GATEWAY)) {
                     continue;
                 }
                 BlockState expected = room.compactLayout ? initialBlock(pos, origin) : legacyBlock(pos, origin);
@@ -60,10 +61,11 @@ public final class PocketRoom {
         return new AABB(origin.offset(1, 1, 1), origin.offset(LEGACY_WIDTH - 1, HEIGHT - 1, LEGACY_WIDTH - 1));
     }
 
-    static boolean touchingExit(ServerPlayer player, PocketData.Room room) {
-        BlockPos pos = exit(room);
-        return new AABB(pos).expandTowards(0, 0, 0.125).intersects(player.getBoundingBox())
-                && player.serverLevel().getBlockState(pos).is(Blocks.END_GATEWAY);
+    static boolean insideExit(ServerPlayer player, PocketData.Room room) {
+        BlockPos gate = exit(room);
+        BlockPos feet = player.blockPosition();
+        return (feet.equals(gate) || feet.equals(gate.below()))
+                && player.serverLevel().getBlockState(feet).is(Blocks.END_GATEWAY);
     }
 
     static Vec3 entrance(PocketData.Room room) {
@@ -89,10 +91,8 @@ public final class PocketRoom {
 
     static boolean ensureGateway(ServerLevel level, PocketData.Room room) {
         BlockPos pos = exit(room);
-        BlockState state = level.getBlockState(pos);
         Block wall = room.compactLayout ? Blocks.BARRIER : Blocks.BEDROCK;
-        if (!state.is(Blocks.END_GATEWAY) && (!state.is(wall)
-                || !level.setBlockAndUpdate(pos, Blocks.END_GATEWAY.defaultBlockState()))) {
+        if (!placeGateway(level, pos, wall) || !placeGateway(level, pos.below(), wall)) {
             return false;
         }
 
@@ -109,6 +109,12 @@ public final class PocketRoom {
         }
         room.gatewayReady = true;
         return true;
+    }
+
+    private static boolean placeGateway(ServerLevel level, BlockPos pos, Block wall) {
+        BlockState state = level.getBlockState(pos);
+        return state.is(Blocks.END_GATEWAY)
+                || state.is(wall) && level.setBlockAndUpdate(pos, Blocks.END_GATEWAY.defaultBlockState());
     }
 
     private static BlockPos origin(int id) {
