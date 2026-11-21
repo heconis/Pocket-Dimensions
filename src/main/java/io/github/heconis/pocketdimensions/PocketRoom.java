@@ -68,6 +68,24 @@ public final class PocketRoom {
                 && player.serverLevel().getBlockState(feet).is(Blocks.END_GATEWAY);
     }
 
+    public static boolean touchesReturnGateway(ServerPlayer player) {
+        if (!player.level().dimension().equals(DIMENSION)) {
+            return false;
+        }
+        PocketData.Room room = PocketData.get(player.getServer()).find(player.getUUID());
+        if (room == null || !room.generated) {
+            return false;
+        }
+        BlockPos upper = exit(room);
+        AABB bounds = player.getBoundingBox();
+        return overlapsGateway(player.serverLevel(), bounds, upper)
+                || overlapsGateway(player.serverLevel(), bounds, upper.below());
+    }
+
+    private static boolean overlapsGateway(ServerLevel level, AABB bounds, BlockPos pos) {
+        return bounds.intersects(new AABB(pos)) && level.getBlockState(pos).is(Blocks.END_GATEWAY);
+    }
+
     static Vec3 entrance(PocketData.Room room) {
         BlockPos gate = exit(room);
         return new Vec3(gate.getX() + 0.5, interior(room).minY, gate.getZ() + 1.32);

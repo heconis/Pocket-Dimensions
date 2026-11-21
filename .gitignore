@@ -1,6 +1,7 @@
 /reference/*.jar
 /.gradle/
 /build/
+/bin/
 /run/
 /run-server/
 /logs/

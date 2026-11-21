@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.advancements.Advancement;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -15,6 +16,8 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -74,6 +77,9 @@ public final class PocketTravelTest {
             helper.assertTrue(sounds.cues.equals(List.of(cast, "stop " + cast,
                             SoundEvents.ENDERMAN_TELEPORT.getLocation().toString())),
                     "Successful entry must stop the ambience and play the teleport sound");
+            PocketTravel.startCast(second);
+            helper.assertTrue(sounds.actionBars == 1 && sounds.cues.size() == 3,
+                    "Only the casting notification should appear before or after entry, even if the key is pressed inside");
             PocketTravel.startCast(first);
         });
         helper.runAfterDelay(80, () -> {
@@ -91,6 +97,9 @@ public final class PocketTravelTest {
                             && room.returnPoint.equals(restored.returnPoint),
                     "Saved room ownership and return data must survive serialization and reload");
             Vec3 arrival = PocketRoom.entrance(room);
+            Advancement gatewayAdvancement = source.getServer().getAdvancements().getAdvancement(
+                    ResourceLocation.fromNamespaceAndPath("minecraft", "end/enter_end_gateway"));
+            helper.assertTrue(gatewayAdvancement != null, "The vanilla gateway advancement must be loaded");
             assertCompactLayout(helper, pocket, arrival);
             assertGatewayEffects(helper, pocket, source, room);
             Vec3 upperGate = Vec3.atBottomCenterOf(PocketRoom.exit(data.find(second.getUUID())));
@@ -102,6 +111,12 @@ public final class PocketTravelTest {
             helper.assertTrue(sounds.cues.size() == 4 && sounds.cues.get(3).equals(
                             SoundEvents.ENDERMAN_TELEPORT.getLocation().toString()),
                     "Successful return must play the teleport sound again");
+            BlockPos vanillaGate = BlockPos.containing(secondOrigin).south();
+            end.setBlockAndUpdate(vanillaGate, Blocks.END_GATEWAY.defaultBlockState());
+            second.move(MoverType.SELF, new Vec3(0, 0, 1));
+            helper.assertTrue(second.getAdvancements().getOrStartProgress(gatewayAdvancement).isDone(),
+                    "Entering a regular gateway in the End must award the vanilla advancement");
+            end.removeBlock(vanillaGate, false);
             BlockPos chestPos = BlockPos.containing(arrival.add(2, 0, 0));
             pocket.setBlockAndUpdate(chestPos, Blocks.CHEST.defaultBlockState());
             ChestBlockEntity chest = (ChestBlockEntity) pocket.getBlockEntity(chestPos);
@@ -109,8 +124,11 @@ public final class PocketTravelTest {
 
             Vec3 approach = arrival.add(0, 0, -0.08);
             first.setPos(approach.x, approach.y, approach.z);
+            first.move(MoverType.SELF, new Vec3(0, 0, -0.01));
             tick(first);
             helper.assertTrue(first.level() == pocket, "Overlapping the gateway with only the player's bounds must not return them");
+            helper.assertTrue(!first.getAdvancements().getOrStartProgress(gatewayAdvancement).isDone(),
+                    "Touching the room gateway before entering it must not award the vanilla advancement");
             first.move(MoverType.SELF, new Vec3(0, 0, -0.64));
             helper.assertTrue(first.blockPosition().equals(PocketRoom.exit(room).below()),
                     "The player must be able to walk into the lower gateway block");
@@ -119,6 +137,8 @@ public final class PocketTravelTest {
                     "The exit must return the player to " + origin + " but arrived at " + first.position()
                             + " in " + first.level().dimension().location());
             helper.assertTrue(first.getYRot() == 45 && first.getXRot() == 10, "Return must restore the recorded rotation");
+            helper.assertTrue(!first.getAdvancements().getOrStartProgress(gatewayAdvancement).isDone(),
+                    "Returning through the room gateway must not award the vanilla advancement");
             PocketTravel.startCast(first);
 
             helper.runAfterDelay(40, () -> {
@@ -248,6 +268,7 @@ public final class PocketTravelTest {
 
     private static final class RecordingConnection extends Connection {
         final List<String> cues = new ArrayList<>();
+        int actionBars;
 
         RecordingConnection() {
             super(PacketFlow.SERVERBOUND);
@@ -259,6 +280,8 @@ public final class PocketTravelTest {
                 cues.add(sound.getSound().value().getLocation().toString());
             } else if (packet instanceof ClientboundStopSoundPacket stop) {
                 cues.add("stop " + stop.getName());
+            } else if (packet instanceof ClientboundSystemChatPacket chat && chat.overlay()) {
+                actionBars++;
             }
         }
     }

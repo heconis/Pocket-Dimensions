@@ -130,11 +130,7 @@ public final class PocketTravel {
     }
 
     private static boolean canEnter(ServerPlayer player) {
-        if (!player.isAlive()) {
-            return false;
-        }
-        if (player.level().dimension().equals(PocketRoom.DIMENSION)) {
-            message(player, "inside");
+        if (!player.isAlive() || player.level().dimension().equals(PocketRoom.DIMENSION)) {
             return false;
         }
         if (player.getCombatTracker().inCombat) {
@@ -164,7 +160,6 @@ public final class PocketTravel {
             room.returnPoint = origin;
             room.exitArmed = true;
             data.setDirty();
-            message(player, "entered");
         } else {
             message(player, "entry_failed");
         }
