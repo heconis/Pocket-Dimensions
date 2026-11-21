@@ -1,6 +1,7 @@
 package io.github.heconis.pocketdimensions;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.PushReaction;
@@ -14,12 +15,16 @@ import net.minecraftforge.registries.RegistryObject;
 public final class PocketDimensions {
     public static final String ID = "pocket_dimensions";
     private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, ID);
+    private static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, ID);
     static final RegistryObject<Block> EXIT = BLOCKS.register("exit", () -> new Block(BlockBehaviour.Properties.of()
             .noCollission().strength(-1.0F, 3_600_000.0F).noLootTable()
             .pushReaction(PushReaction.BLOCK).lightLevel(state -> 12)));
+    static final RegistryObject<SoundEvent> CAST_SOUND = SOUNDS.register("cast_portal_ambient",
+            () -> SoundEvent.createVariableRangeEvent(id("cast_portal_ambient")));
 
     public PocketDimensions(FMLJavaModLoadingContext context) {
         BLOCKS.register(context.getModEventBus());
+        SOUNDS.register(context.getModEventBus());
         EntryNetwork.register();
     }
 

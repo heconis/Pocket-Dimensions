@@ -1,5 +1,6 @@
 package io.github.heconis.pocketdimensions;
 
+import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -12,8 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-final class PocketRoom {
-    static final ResourceKey<Level> DIMENSION = ResourceKey.create(Registries.DIMENSION, PocketDimensions.id("pocket"));
+public final class PocketRoom {
+    public static final ResourceKey<Level> DIMENSION = ResourceKey.create(Registries.DIMENSION, PocketDimensions.id("pocket"));
     private static final int HEIGHT = 32;
     private static final int WALL = 5;
     private static final int FLOOR_WIDTH = 7;
@@ -33,7 +34,11 @@ final class PocketRoom {
         }
 
         if (!room.generated) {
+            BlockPos gate = exit(room);
             for (BlockPos pos : BlockPos.betweenClosed(origin, corner)) {
+                if (pos.equals(gate) && level.getBlockState(gate).is(Blocks.END_GATEWAY)) {
+                    continue;
+                }
                 BlockState expected = room.compactLayout ? initialBlock(pos, origin) : legacyBlock(pos, origin);
                 if (expected != null && !placeIfAir(level, pos, expected)) {
                     return false;
@@ -43,7 +48,7 @@ final class PocketRoom {
             data.setDirty();
         }
 
-        return room.compactLayout ? level.getBlockState(exit(room)).is(Blocks.END_PORTAL) : upgradeLegacyGate(level, room);
+        return ensureGateway(level, room);
     }
 
     static AABB interior(PocketData.Room room) {
@@ -57,36 +62,63 @@ final class PocketRoom {
 
     static boolean touchingExit(ServerPlayer player, PocketData.Room room) {
         BlockPos pos = exit(room);
-        ServerLevel level = player.serverLevel();
-        BlockState state = level.getBlockState(pos);
-        return state.is(Blocks.END_PORTAL) && state.getShape(level, pos).bounds()
-                .move(pos).intersects(player.getBoundingBox());
+        return new AABB(pos).expandTowards(0, 0, 0.125).intersects(player.getBoundingBox())
+                && player.serverLevel().getBlockState(pos).is(Blocks.END_GATEWAY);
     }
 
     static Vec3 entrance(PocketData.Room room) {
-        return Vec3.atBottomCenterOf(exit(room));
+        BlockPos gate = exit(room);
+        return new Vec3(gate.getX() + 0.5, interior(room).minY, gate.getZ() + 1.32);
     }
 
-    static boolean upgradeLegacyGate(ServerLevel level, PocketData.Room room) {
+    @Nullable
+    static Vec3 safeEntrance(ServerPlayer player, ServerLevel level, PocketData.Room room) {
+        Vec3 entrance = entrance(room);
+        if (SafeReturn.isSafe(player, level, entrance)) {
+            return entrance;
+        }
+        AABB interior = interior(room);
+        for (BlockPos pos : BlockPos.withinManhattan(BlockPos.containing(entrance), 2, 1, 2)) {
+            Vec3 alternative = Vec3.atBottomCenterOf(pos);
+            if (interior.contains(alternative) && SafeReturn.isSafe(player, level, alternative)) {
+                return alternative;
+            }
+        }
+        return null;
+    }
+
+    static boolean ensureGateway(ServerLevel level, PocketData.Room room) {
         BlockPos pos = exit(room);
-        BlockState lower = level.getBlockState(pos);
-        if (!lower.is(Blocks.END_PORTAL) && (!lower.is(PocketDimensions.EXIT.get())
-                || !level.setBlockAndUpdate(pos, Blocks.END_PORTAL.defaultBlockState()))) {
+        BlockState state = level.getBlockState(pos);
+        Block wall = room.compactLayout ? Blocks.BARRIER : Blocks.BEDROCK;
+        if (!state.is(Blocks.END_GATEWAY) && (!state.is(wall)
+                || !level.setBlockAndUpdate(pos, Blocks.END_GATEWAY.defaultBlockState()))) {
             return false;
         }
-        BlockPos upper = pos.above();
-        return !level.getBlockState(upper).is(PocketDimensions.EXIT.get())
-                || level.setBlockAndUpdate(upper, Blocks.AIR.defaultBlockState());
+
+        BlockPos previous = room.compactLayout ? origin(room.id).offset(WALL + FLOOR_WIDTH / 2, FLOOR_Y + 1, WALL)
+                : origin(room.id).offset(7, 1, 3);
+        BlockState previousState = level.getBlockState(previous);
+        if ((previousState.is(Blocks.END_PORTAL) || previousState.is(PocketDimensions.EXIT.get()))
+                && !level.removeBlock(previous, false)) {
+            return false;
+        }
+        if (!room.compactLayout && level.getBlockState(previous.above()).is(PocketDimensions.EXIT.get())
+                && !level.removeBlock(previous.above(), false)) {
+            return false;
+        }
+        room.gatewayReady = true;
+        return true;
     }
 
     private static BlockPos origin(int id) {
         return new BlockPos(id % ROOMS_PER_ROW * SPACING, 0, id / ROOMS_PER_ROW * SPACING);
     }
 
-    private static BlockPos exit(PocketData.Room room) {
+    static BlockPos exit(PocketData.Room room) {
         BlockPos origin = origin(room.id);
-        return room.compactLayout ? origin.offset(WALL + FLOOR_WIDTH / 2, FLOOR_Y + 1, WALL)
-                : origin.offset(7, 1, 3);
+        return room.compactLayout ? origin.offset(WALL + FLOOR_WIDTH / 2, FLOOR_Y + 2, WALL - 1)
+                : origin.offset(7, 2, 0);
     }
 
     private static BlockState initialBlock(BlockPos pos, BlockPos origin) {
@@ -99,8 +131,7 @@ final class PocketRoom {
         if (y == FLOOR_Y) {
             return Blocks.BEDROCK.defaultBlockState();
         }
-        return x == WALL + FLOOR_WIDTH / 2 && y == FLOOR_Y + 1 && z == WALL
-                ? Blocks.END_PORTAL.defaultBlockState() : null;
+        return null;
     }
 
     private static BlockState legacyBlock(BlockPos pos, BlockPos origin) {
@@ -109,9 +140,6 @@ final class PocketRoom {
         int z = pos.getZ() - origin.getZ();
         if (x == 0 || x == LEGACY_WIDTH - 1 || z == 0 || z == LEGACY_WIDTH - 1 || y == 0 || y == HEIGHT - 1) {
             return Blocks.BEDROCK.defaultBlockState();
-        }
-        if (x == 7 && z == 3 && (y == 1 || y == 2)) {
-            return PocketDimensions.EXIT.get().defaultBlockState();
         }
         if (y == 1 && (x >= 6 && x <= 8) && (z >= 6 && z <= 9)) {
             return Blocks.POLISHED_DEEPSLATE.defaultBlockState();

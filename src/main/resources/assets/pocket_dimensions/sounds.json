@@ -1,0 +1,6 @@
+{
+  "cast_portal_ambient": {
+    "subtitle": "subtitles.block.portal.ambient",
+    "sounds": [{ "name": "minecraft:block.portal.ambient", "type": "event" }]
+  }
+}

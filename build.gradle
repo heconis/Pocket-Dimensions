@@ -1,9 +1,10 @@
 plugins {
     id 'net.minecraftforge.gradle' version '6.0.54'
+    id 'org.spongepowered.mixin' version '0.7.38'
 }
 
 group = 'io.github.heconis.pocketdimensions'
-version = '0.2.0'
+version = '0.3.0'
 base { archivesName = 'pocket-dimensions' }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -43,6 +44,12 @@ repositories { mavenCentral() }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.0'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+mixin {
+    add sourceSets.main, 'pocket_dimensions.refmap.json'
+    config 'pocket_dimensions.mixins.json'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -50,6 +57,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('jar').configure {
-    manifest.attributes('Implementation-Version': project.version)
+    manifest.attributes('Implementation-Version': project.version, 'MixinConfigs': 'pocket_dimensions.mixins.json')
     finalizedBy 'reobfJar'
 }

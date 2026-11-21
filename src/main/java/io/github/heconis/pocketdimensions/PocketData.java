@@ -76,6 +76,7 @@ final class PocketData extends SavedData {
         final int id;
         final boolean compactLayout;
         boolean generated;
+        boolean gatewayReady;
         boolean exitArmed;
         ReturnPoint returnPoint;
 
