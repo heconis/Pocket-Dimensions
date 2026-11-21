@@ -31,7 +31,7 @@ final class PocketData extends SavedData {
     Room allocate(UUID player) {
         return rooms.computeIfAbsent(player, key -> {
             setDirty();
-            return new Room(nextId++);
+            return new Room(nextId++, true);
         });
     }
 
@@ -40,7 +40,7 @@ final class PocketData extends SavedData {
         data.nextId = root.getInt("NextId");
         for (Tag item : root.getList("Rooms", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) item;
-            Room room = new Room(entry.getInt("Id"));
+            Room room = new Room(entry.getInt("Id"), entry.getBoolean("CompactLayout"));
             room.generated = entry.getBoolean("Generated");
             room.exitArmed = entry.getBoolean("ExitArmed");
             if (entry.contains("Return", Tag.TAG_COMPOUND)) {
@@ -59,6 +59,7 @@ final class PocketData extends SavedData {
             CompoundTag entry = new CompoundTag();
             entry.putUUID("Owner", owner);
             entry.putInt("Id", room.id);
+            entry.putBoolean("CompactLayout", room.compactLayout);
             entry.putBoolean("Generated", room.generated);
             entry.putBoolean("ExitArmed", room.exitArmed);
             if (room.returnPoint != null) {
@@ -73,12 +74,14 @@ final class PocketData extends SavedData {
 
     static final class Room {
         final int id;
+        final boolean compactLayout;
         boolean generated;
         boolean exitArmed;
         ReturnPoint returnPoint;
 
-        private Room(int id) {
+        private Room(int id, boolean compactLayout) {
             this.id = id;
+            this.compactLayout = compactLayout;
         }
     }
 

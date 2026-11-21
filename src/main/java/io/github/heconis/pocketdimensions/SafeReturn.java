@@ -54,6 +54,10 @@ final class SafeReturn {
     }
 
     static boolean isSafe(ServerPlayer player, ServerLevel level, Vec3 position) {
+        return isSafe(player, level, position, null);
+    }
+
+    static boolean isSafe(ServerPlayer player, ServerLevel level, Vec3 position, @Nullable BlockPos arrivalGate) {
         AABB bounds = player.getDimensions(Pose.STANDING).makeBoundingBox(position);
         if (bounds.minY <= level.getMinBuildHeight() || bounds.maxY > level.getMaxBuildHeight()
                 || !level.getWorldBorder().isWithinBounds(bounds)) {
@@ -77,7 +81,7 @@ final class SafeReturn {
         for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(checked.minX, checked.minY, checked.minZ),
                 BlockPos.containing(checked.maxX, checked.maxY, checked.maxZ))) {
             BlockState state = level.getBlockState(pos);
-            if (isHazard(state)) {
+            if (isHazard(state) && !(state.is(Blocks.END_PORTAL) && pos.equals(arrivalGate))) {
                 return false;
             }
         }

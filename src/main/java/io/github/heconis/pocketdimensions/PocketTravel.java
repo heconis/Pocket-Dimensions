@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -14,6 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.level.BlockEvent;
@@ -24,6 +26,7 @@ import net.minecraftforge.fml.common.Mod;
 public final class PocketTravel {
     private static final int CAST_TICKS = 40;
     private static final Map<UUID, Cast> CASTS = new HashMap<>();
+    private static ServerPlayer returningToEnd;
 
     static void startCast(ServerPlayer player) {
         if (!CASTS.containsKey(player.getUUID()) && canEnter(player)) {
@@ -64,6 +67,15 @@ public final class PocketTravel {
     }
 
     @SubscribeEvent
+    public static void onDimensionTravel(EntityTravelToDimensionEvent event) {
+        // The vanilla portal may try to send any intersecting entity to the End before the room tick.
+        if (event.getDimension().equals(Level.END) && event.getEntity().level().dimension().equals(PocketRoom.DIMENSION)
+                && event.getEntity() != returningToEnd) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
     public static void onDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             CASTS.remove(player.getUUID());
@@ -73,7 +85,8 @@ public final class PocketTravel {
     @SubscribeEvent
     public static void onBreak(BlockEvent.BreakEvent event) {
         if (event.getLevel() instanceof ServerLevel level && level.dimension().equals(PocketRoom.DIMENSION)
-                && (event.getState().is(Blocks.BEDROCK) || event.getState().is(PocketDimensions.EXIT.get()))) {
+                && (event.getState().is(Blocks.BEDROCK) || event.getState().is(Blocks.BARRIER)
+                || event.getState().is(Blocks.END_PORTAL) || event.getState().is(PocketDimensions.EXIT.get()))) {
             event.setCanceled(true);
         }
     }
@@ -127,8 +140,9 @@ public final class PocketTravel {
 
         PocketData data = PocketData.get(player.getServer());
         PocketData.Room room = data.allocate(player.getUUID());
-        Vec3 arrival = PocketRoom.entrance(room.id);
-        if (!PocketRoom.prepare(pocket, data, room) || !SafeReturn.isSafe(player, pocket, arrival)) {
+        Vec3 arrival = PocketRoom.entrance(room);
+        if (!PocketRoom.prepare(pocket, data, room)
+                || !SafeReturn.isSafe(player, pocket, arrival, BlockPos.containing(arrival))) {
             message(player, "entry_failed");
             return;
         }
@@ -150,10 +164,13 @@ public final class PocketTravel {
         if (room == null || !room.generated) {
             return;
         }
+        if (!room.compactLayout && !PocketRoom.upgradeLegacyGate(player.serverLevel(), room)) {
+            return;
+        }
 
-        if (!PocketRoom.interior(room.id).contains(player.position())) {
-            Vec3 arrival = PocketRoom.entrance(room.id);
-            if (SafeReturn.isSafe(player, player.serverLevel(), arrival)
+        if (!PocketRoom.interior(room).contains(player.position())) {
+            Vec3 arrival = PocketRoom.entrance(room);
+            if (SafeReturn.isSafe(player, player.serverLevel(), arrival, BlockPos.containing(arrival))
                     && move(player, player.serverLevel(), arrival, 0, 0)) {
                 room.exitArmed = false;
                 data.setDirty();
@@ -161,7 +178,7 @@ public final class PocketTravel {
             return;
         }
 
-        if (!PocketRoom.exitBounds(room.id).intersects(player.getBoundingBox())) {
+        if (!PocketRoom.touchingExit(player, room)) {
             if (!room.exitArmed) {
                 room.exitArmed = true;
                 data.setDirty();
@@ -189,13 +206,21 @@ public final class PocketTravel {
 
     private static boolean move(ServerPlayer player, ServerLevel level, Vec3 pos, float yaw, float pitch) {
         player.ejectPassengers();
-        boolean moved = player.teleportTo(level, pos.x, pos.y, pos.z, Set.of(), yaw, pitch);
-        if (moved && player.level() == level) {
-            player.setDeltaMovement(Vec3.ZERO);
-            player.resetFallDistance();
-            return true;
+        ServerPlayer previous = returningToEnd;
+        if (level.dimension().equals(Level.END) && player.level().dimension().equals(PocketRoom.DIMENSION)) {
+            returningToEnd = player;
         }
-        return false;
+        try {
+            boolean moved = player.teleportTo(level, pos.x, pos.y, pos.z, Set.of(), yaw, pitch);
+            if (moved && player.level() == level) {
+                player.setDeltaMovement(Vec3.ZERO);
+                player.resetFallDistance();
+                return true;
+            }
+            return false;
+        } finally {
+            returningToEnd = previous;
+        }
     }
 
     private static void message(ServerPlayer player, String key) {

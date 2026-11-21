@@ -3,7 +3,7 @@
   "key.pocket_dimensions.enter": "Start casting to enter your room",
   "block.pocket_dimensions.exit": "Return Gate",
   "message.pocket_dimensions.casting": "Casting to enter your pocket room…",
-  "message.pocket_dimensions.entered": "To return, step out of the purple gate and walk back into it.",
+  "message.pocket_dimensions.entered": "To return, step out of the end portal and walk back into it.",
   "message.pocket_dimensions.inside": "Use the gate in your room to return.",
   "message.pocket_dimensions.combat": "You cannot enter your pocket room during combat.",
   "message.pocket_dimensions.entry_failed": "Your pocket room is unavailable. Try again later.",
