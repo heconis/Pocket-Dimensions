@@ -1,0 +1,24 @@
+modLoader = "javafml"
+loaderVersion = "[47,48)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "pocket_dimensions"
+version = "${file.jarVersion}"
+displayName = "Pocket Dimensions"
+authors = "heconis"
+description = "Enter your own pocket room and return through its exit."
+
+[[dependencies.pocket_dimensions]]
+modId = "forge"
+mandatory = true
+versionRange = "[47.4.0,48)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.pocket_dimensions]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20.1,1.20.2)"
+ordering = "NONE"
+side = "BOTH"

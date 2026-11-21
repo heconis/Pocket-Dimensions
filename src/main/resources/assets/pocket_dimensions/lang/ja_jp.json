@@ -1,0 +1,14 @@
+{
+  "key.categories.pocket_dimensions": "ポケットディメンション",
+  "key.pocket_dimensions.enter": "専用区画への詠唱を開始",
+  "block.pocket_dimensions.exit": "帰還ゲート",
+  "message.pocket_dimensions.casting": "専用区画への詠唱中…",
+  "message.pocket_dimensions.entered": "帰還するには紫色のゲートから一度離れ、入り直してください。",
+  "message.pocket_dimensions.inside": "帰還するには区画内のゲートを使ってください。",
+  "message.pocket_dimensions.combat": "戦闘中は専用区画に移動できません。",
+  "message.pocket_dimensions.entry_failed": "専用区画を利用できません。時間をおいて再試行してください。",
+  "message.pocket_dimensions.return_failed": "安全な帰還先が見つかりません。ゲートから離れて再試行してください。",
+  "message.pocket_dimensions.return_nearby": "発動地点が安全でないため、近くの安全な場所に帰還しました。",
+  "message.pocket_dimensions.return_spawn": "発動地点の周辺に帰還できないため、ワールドスポーンの近くに帰還しました。",
+  "message.pocket_dimensions.placement_denied": "このブロックは専用区画に設置できません。"
+}

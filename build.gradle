@@ -1,0 +1,55 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '6.0.54'
+}
+
+group = 'io.github.heconis.pocketdimensions'
+version = '0.1.0'
+base { archivesName = 'pocket-dimensions' }
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+sourceSets {
+    gameTest {
+        compileClasspath += main.output + main.compileClasspath
+        runtimeClasspath += compileClasspath
+    }
+}
+
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    runs {
+        configureEach {
+            mods {
+                pocket_dimensions { source sourceSets.main }
+            }
+        }
+        client { workingDirectory project.file('run') }
+        server {
+            workingDirectory project.file('run-server')
+            args '--nogui'
+        }
+        gameTestServer {
+            workingDirectory project.file('build/gametest')
+            property 'forge.enabledGameTestNamespaces', 'pocket_dimensions'
+            mods {
+                pocket_dimensions { source sourceSets.gameTest }
+            }
+        }
+    }
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('jar').configure {
+    manifest.attributes('Implementation-Version': project.version)
+    finalizedBy 'reobfJar'
+}

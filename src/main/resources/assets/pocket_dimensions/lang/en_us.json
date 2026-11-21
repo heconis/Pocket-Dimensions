@@ -1,0 +1,14 @@
+{
+  "key.categories.pocket_dimensions": "Pocket Dimensions",
+  "key.pocket_dimensions.enter": "Start casting to enter your room",
+  "block.pocket_dimensions.exit": "Return Gate",
+  "message.pocket_dimensions.casting": "Casting to enter your pocket room…",
+  "message.pocket_dimensions.entered": "To return, step out of the purple gate and walk back into it.",
+  "message.pocket_dimensions.inside": "Use the gate in your room to return.",
+  "message.pocket_dimensions.combat": "You cannot enter your pocket room during combat.",
+  "message.pocket_dimensions.entry_failed": "Your pocket room is unavailable. Try again later.",
+  "message.pocket_dimensions.return_failed": "No safe return point could be found. Step out of the gate and try again.",
+  "message.pocket_dimensions.return_nearby": "Your original position is unsafe. You returned to a safe spot nearby.",
+  "message.pocket_dimensions.return_spawn": "Your original area is unavailable or unsafe. You returned near world spawn.",
+  "message.pocket_dimensions.placement_denied": "This block cannot be placed in a pocket room."
+}
